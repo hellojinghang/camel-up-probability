@@ -18,38 +18,41 @@ def generate_remaining_dice_permutations(remaining_camels):
 
     return results
 
+
 def update_positions(base_positions, moves, spectator_tiles):
     camels = list(base_positions.keys())
     stacks = {tile: [] for tile in range(17)}
+
     for camel in camels:
         tile, stack = base_positions[camel]
         stacks[tile].append((stack, camel))
 
     for tile in stacks:
-        stacks[tile].sort()
+        stacks[tile].sort()  # sort by stack index
 
     for camel, steps in moves:
+        # Locate the camel
         for tile, stack in stacks.items():
-            for s in stack:
-                if s[1] == camel:
-                    camel_stack = stack[stack.index(s):]
-                    stacks[tile] = stack[:stack.index(s)]
+            for i, (_, c) in enumerate(stack):
+                if c == camel:
+                    camel_stack = stack[i:]  # the camel and above
+                    stacks[tile] = stack[:i]  # those below stay
                     dest_tile = tile + steps
-                    if dest_tile > 16:
-                        dest_tile = 16
+                    mirage = False
 
+                    # Check for spectator tile effect
                     if dest_tile in spectator_tiles:
                         effect = spectator_tiles[dest_tile]
                         if effect == "oasis":
                             dest_tile = min(16, dest_tile + 1)
                         elif effect == "mirage":
                             dest_tile = max(0, dest_tile - 1)
-                            mirage_effect = True
-                        else:
-                            mirage_effect = False
+                            mirage = True
 
-                    if 'mirage_effect' in locals() and mirage_effect:
-                        stacks[dest_tile] = camel_stack + stacks[dest_tile]  # insert at bottom
+                    # Move camel stack to new tile
+                    if mirage:
+                        # Add to bottom
+                        stacks[dest_tile] = camel_stack + stacks[dest_tile]
                     else:
                         stacks[dest_tile].extend(camel_stack)
                     break
@@ -58,11 +61,12 @@ def update_positions(base_positions, moves, spectator_tiles):
             break
 
     final_positions = {}
-    for tile in stacks:
-        for stack_idx, (_, camel) in enumerate(stacks[tile]):
-            final_positions[camel] = (tile, stack_idx)
+    for tile, stack in stacks.items():
+        for idx, (_, camel) in enumerate(stack):
+            final_positions[camel] = (tile, idx)
 
     return final_positions
+
 
 def rank_camels(positions):
     return sorted(positions.items(), key=lambda x: (-x[1][0], -x[1][1]))
