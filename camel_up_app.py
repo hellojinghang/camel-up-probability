@@ -44,8 +44,14 @@ def update_positions(base_positions, moves, spectator_tiles):
                             dest_tile = min(16, dest_tile + 1)
                         elif effect == "mirage":
                             dest_tile = max(0, dest_tile - 1)
+                            mirage_effect = True
+                        else:
+                            mirage_effect = False
 
-                    stacks[dest_tile].extend(camel_stack)
+                    if 'mirage_effect' in locals() and mirage_effect:
+                        stacks[dest_tile] = camel_stack + stacks[dest_tile]  # insert at bottom
+                    else:
+                        stacks[dest_tile].extend(camel_stack)
                     break
             else:
                 continue
