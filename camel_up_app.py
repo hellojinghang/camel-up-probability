@@ -23,7 +23,7 @@ remaining_camels = st.multiselect("Select Camels That Haven't Moved Yet", camel_
 # Spectator Tiles
 st.subheader("Spectator Tiles")
 oasis_tiles = st.multiselect("Oasis Tiles (Advance +1)", list(range(1, 17)), default=[])
-mirage_tiles = st.multiselect("Mirage Tiles (Retreat -1, go under stack)", list(range(1, 17)), default=[])
+mirage_tiles = st.multiselect("Mirage Tiles (Retreat -1, go under stack)", list(range(1, 17)), default=[]))
 
 spectator_tiles = {}
 for t in oasis_tiles:
@@ -102,15 +102,33 @@ if st.button("Calculate Probabilities"):
             results.append(tuple(ranking))
 
     rank_counter = defaultdict(int)
+    camel_rank_tally = {camel: [0]*5 for camel in camel_colors}
+
     for rank in results:
         rank_counter[rank] += 1
+        for i, camel in enumerate(rank):
+            camel_rank_tally[camel][i] += 1
 
     total = len(results)
+
+    df_rank_summary = pd.DataFrame({
+        "Camel": camel_colors,
+        "1st (%)": [camel_rank_tally[c][0] / total * 100 for c in camel_colors],
+        "2nd (%)": [camel_rank_tally[c][1] / total * 100 for c in camel_colors],
+        "3rd (%)": [camel_rank_tally[c][2] / total * 100 for c in camel_colors],
+        "4th (%)": [camel_rank_tally[c][3] / total * 100 for c in camel_colors],
+        "5th (%)": [camel_rank_tally[c][4] / total * 100 for c in camel_colors],
+    })
+
     df_result_final = pd.DataFrame([
         {"Rank Order": rank, "Probability (%)": count / total * 100}
         for rank, count in sorted(rank_counter.items(), key=lambda x: -x[1])
     ])
 
     df_result_final.reset_index(drop=True, inplace=True)
-    st.subheader("Probability Results")
+
+    st.subheader("Probability by Full Rank Order")
     st.dataframe(df_result_final, use_container_width=True)
+
+    st.subheader("Probability Summary by Camel Rank")
+    st.dataframe(df_rank_summary, use_container_width=True)
