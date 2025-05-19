@@ -47,7 +47,8 @@ def update_positions_v2(base_positions, moves, spectator_tiles):
                             stacks[final_dest_tile].extend(camel_stack)
                         break
                     else:
-                        stacks[raw_dest_tile].extend(camel_stack)
+                        # Moving stack goes on top of existing stack
+                        stacks[raw_dest_tile] = stacks[raw_dest_tile] + camel_stack
                     break
             else:
                 continue
