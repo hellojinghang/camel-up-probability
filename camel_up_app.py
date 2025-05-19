@@ -23,7 +23,7 @@ remaining_camels = st.multiselect("Select Camels That Haven't Moved Yet", camel_
 # Spectator Tiles
 st.subheader("Spectator Tiles")
 oasis_tiles = st.multiselect("Oasis Tiles (Advance +1)", list(range(1, 17)), default=[])
-mirage_tiles = st.multiselect("Mirage Tiles (Retreat -1, go under stack)", list(range(1, 17)), default=[]))
+mirage_tiles = st.multiselect("Mirage Tiles (Retreat -1, go under stack)", list(range(1, 17)), default=[])
 
 spectator_tiles = {}
 for t in oasis_tiles:
