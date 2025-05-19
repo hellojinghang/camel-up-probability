@@ -1,56 +1,55 @@
-import streamlit as st
 import pandas as pd
 from collections import defaultdict
+import streamlit as st
+from itertools import product, permutations
 
+# Streamlit UI
+st.title("🐫 Camel Up Probability Calculator")
+
+st.markdown("Enter the current game state below:")
+
+# Input: Initial camel positions
 camel_colors = ["Blue", "Red", "Yellow", "Green", "Orange"]
-
-st.title("Camel Up Probability Calculator")
-
-# Initial Positions
-st.subheader("Initial Camel Positions")
 initial_positions = {}
+
+st.subheader("Initial Camel Positions")
 for camel in camel_colors:
     col1, col2 = st.columns(2)
     with col1:
-        tile = st.number_input(f"{camel} Tile", min_value=0, max_value=16, value=0, key=f"{camel}_tile")
+        tile = st.number_input(f"{camel} - Tile", min_value=0, max_value=16, value=0, key=f"{camel}_tile")
     with col2:
-        stack = st.number_input(f"{camel} Stack Index", min_value=0, max_value=4, value=0, key=f"{camel}_stack")
-    initial_positions[camel] = (tile, stack)
+        index = st.number_input(f"{camel} - Stack Index", min_value=0, max_value=4, value=0, key=f"{camel}_index")
+    initial_positions[camel] = (tile, index)
 
-# Remaining Camels
-remaining_camels = st.multiselect("Select Camels That Haven't Moved Yet", camel_colors)
+# Remaining camels to roll
+remaining_camels = st.multiselect("Camels that have not rolled yet", options=camel_colors, default=camel_colors)
 
-# Spectator Tiles
-st.subheader("Spectator Tiles")
-oasis_tiles = st.multiselect("Oasis Tiles (Advance +1)", list(range(1, 17)), default=[])
-mirage_tiles = st.multiselect("Mirage Tiles (Retreat -1, go under stack)", list(range(1, 17)), default=[])
-
-spectator_tiles = {}
-for t in oasis_tiles:
-    spectator_tiles[t] = "oasis"
-for t in mirage_tiles:
-    spectator_tiles[t] = "mirage"
-
-# Dice Rolls
-st.subheader("Simulated Dice Rolls")
-dice_rolls = [1, 2, 3]
+# Spectator tiles
+st.subheader("Spectator Effects")
+oasis_tiles = st.multiselect("Oasis Tiles (+1 forward)", options=list(range(1, 17)))
+mirage_tiles = st.multiselect("Mirage Tiles (-1 backward)", options=list(range(1, 17)))
+spectator_tiles = {tile: "oasis" for tile in oasis_tiles}
+spectator_tiles.update({tile: "mirage" for tile in mirage_tiles})
 
 
 def update_positions_corrected(base_positions, moves, spectator_tiles):
     camels = list(base_positions.keys())
     stacks = {tile: [] for tile in range(17)}
 
+    # Initialize stacks
     for camel in camels:
         tile, stack = base_positions[camel]
         stacks[tile].append((stack, camel))
 
     for tile in stacks:
-        stacks[tile].sort()
+        stacks[tile].sort()  # stack order
 
     for camel, steps in moves:
+        # Locate the camel in the stacks
         for tile, stack in stacks.items():
             for i, (_, c) in enumerate(stack):
                 if c == camel:
+                    # If on tile 0, move only this camel (not stacked ones)
                     if tile == 0:
                         camel_stack = [(0, camel)]
                         stacks[tile] = [x for x in stack if x[1] != camel]
@@ -58,26 +57,35 @@ def update_positions_corrected(base_positions, moves, spectator_tiles):
                         camel_stack = stack[i:]
                         stacks[tile] = stack[:i]
 
-                    dest_tile = tile + steps
+                    raw_dest_tile = tile + steps
+                    final_dest_tile = raw_dest_tile
                     mirage = False
+                    oasis = False
 
-                    if dest_tile in spectator_tiles:
-                        effect = spectator_tiles[dest_tile]
+                    # Apply oasis/mirage logic
+                    if raw_dest_tile in spectator_tiles:
+                        effect = spectator_tiles[raw_dest_tile]
                         if effect == "oasis":
-                            dest_tile = min(16, dest_tile + 1)
+                            final_dest_tile = min(16, raw_dest_tile + 1)
+                            oasis = True
                         elif effect == "mirage":
-                            dest_tile = max(0, dest_tile - 1)
+                            final_dest_tile = max(0, raw_dest_tile - 1)
                             mirage = True
 
+                    # Apply stack merge rules
                     if mirage:
-                        stacks[dest_tile] = camel_stack + stacks[dest_tile]
+                        stacks[final_dest_tile] = camel_stack + stacks[final_dest_tile]
+                    elif oasis:
+                        stacks[final_dest_tile].extend(camel_stack)
                     else:
-                        stacks[dest_tile].extend(camel_stack)
+                        stacks[raw_dest_tile].extend(camel_stack)
+
                     break
             else:
                 continue
             break
 
+    # Final positions
     final_positions = {}
     for tile, stack in stacks.items():
         for idx, (_, camel) in enumerate(stack):
@@ -91,44 +99,53 @@ def rank_camels(positions):
     return [camel for camel, _ in ranked]
 
 
-# Simulation
-if st.button("Calculate Probabilities"):
+def simulate_all_rolls(initial_positions, remaining_camels, spectator_tiles):
+    dice_faces = [1, 2, 3]
+    all_roll_combos = list(product(dice_faces, repeat=len(remaining_camels)))
+    all_orders = list(permutations(remaining_camels))
+
     results = []
-    for roll in dice_rolls:
-        for camel in remaining_camels:
-            moves = [(camel, roll)]
-            updated_positions = update_positions_corrected(initial_positions, moves, spectator_tiles)
-            ranking = rank_camels(updated_positions)
-            results.append(tuple(ranking))
+    for rolls in all_roll_combos:
+        for order in all_orders:
+            moves = list(zip(order, rolls))
+            final_positions = update_positions_corrected(initial_positions, moves, spectator_tiles)
+            rank = rank_camels(final_positions)
+            results.append(tuple(rank))
 
-    rank_counter = defaultdict(int)
-    camel_rank_tally = {camel: [0]*5 for camel in camel_colors}
+    return results
 
-    for rank in results:
-        rank_counter[rank] += 1
-        for i, camel in enumerate(rank):
-            camel_rank_tally[camel][i] += 1
 
-    total = len(results)
+# Run simulation and show results
+if st.button("Calculate Probabilities"):
+    if not remaining_camels:
+        st.warning("Please select at least one remaining camel.")
+    else:
+        results = simulate_all_rolls(initial_positions, remaining_camels, spectator_tiles)
 
-    df_rank_summary = pd.DataFrame({
-        "Camel": camel_colors,
-        "1st (%)": [camel_rank_tally[c][0] / total * 100 for c in camel_colors],
-        "2nd (%)": [camel_rank_tally[c][1] / total * 100 for c in camel_colors],
-        "3rd (%)": [camel_rank_tally[c][2] / total * 100 for c in camel_colors],
-        "4th (%)": [camel_rank_tally[c][3] / total * 100 for c in camel_colors],
-        "5th (%)": [camel_rank_tally[c][4] / total * 100 for c in camel_colors],
-    })
+        # Full ranking summary
+        rank_counter = defaultdict(int)
+        for rank in results:
+            rank_counter[rank] += 1
 
-    df_result_final = pd.DataFrame([
-        {"Rank Order": rank, "Probability (%)": count / total * 100}
-        for rank, count in sorted(rank_counter.items(), key=lambda x: -x[1])
-    ])
+        total = len(results)
+        df_full_rank = pd.DataFrame([
+            {"Rank Order": " > ".join(rank), "Probability (%)": count / total * 100}
+            for rank, count in sorted(rank_counter.items(), key=lambda x: -x[1])
+        ])
+        df_full_rank.reset_index(drop=True, inplace=True)
+        st.subheader("📊 Probability by Full Rank Order")
+        st.dataframe(df_full_rank.style.format({"Probability (%)": "{:.2f}"}))
 
-    df_result_final.reset_index(drop=True, inplace=True)
+        # Per-camel rank summary
+        camel_rank_summary = defaultdict(lambda: [0] * 5)
+        for rank in results:
+            for i, camel in enumerate(rank):
+                camel_rank_summary[camel][i] += 1
 
-    st.subheader("Probability by Full Rank Order")
-    st.dataframe(df_result_final, use_container_width=True)
-
-    st.subheader("Probability Summary by Camel Rank")
-    st.dataframe(df_rank_summary, use_container_width=True)
+        df_camel_summary = pd.DataFrame([
+            {"Camel": camel, **{f"{i+1}st": count / total * 100 for i, count in enumerate(ranks)}}
+            for camel, ranks in camel_rank_summary.items()
+        ])
+        df_camel_summary = df_camel_summary[["Camel", "1st", "2st", "3st", "4st", "5st"]]
+        st.subheader("🐪 Per-Camel Finish Probability")
+        st.dataframe(df_camel_summary.style.format({col: "{:.2f}%" for col in df_camel_summary.columns if col != "Camel"}))
