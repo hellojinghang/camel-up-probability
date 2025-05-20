@@ -1,15 +1,15 @@
-# app.py
 import streamlit as st
 import pandas as pd
 from itertools import permutations, product
 from collections import defaultdict
 
-# -------------------- Core Game Logic --------------------
+# Fixed camel movement logic with proper stacking
 
-def update_positions_v2(base_positions, moves, spectator_tiles):
+def update_positions(base_positions, moves, spectator_tiles):
     camels = list(base_positions.keys())
     stacks = {tile: [] for tile in range(17)}
 
+    # Initialize stacks
     for camel in camels:
         tile, stack = base_positions[camel]
         stacks[tile].append((stack, camel))
@@ -35,7 +35,7 @@ def update_positions_v2(base_positions, moves, spectator_tiles):
                         effect = spectator_tiles[raw_dest_tile]
                         if effect == "oasis":
                             final_dest_tile = min(16, raw_dest_tile + 1)
-                            stacks[final_dest_tile].extend(camel_stack)
+                            stacks[final_dest_tile] = camel_stack + stacks[final_dest_tile]
                         elif effect == "mirage":
                             final_dest_tile = max(0, raw_dest_tile - 1)
                             stacks[final_dest_tile] = (
@@ -44,11 +44,10 @@ def update_positions_v2(base_positions, moves, spectator_tiles):
                                 stacks[final_dest_tile]
                             )
                         else:
-                            stacks[final_dest_tile].extend(camel_stack)
+                            stacks[final_dest_tile] = camel_stack + stacks[final_dest_tile]
                         break
                     else:
-                        # Moving stack goes on top of existing stack
-                        stacks[raw_dest_tile] = stacks[raw_dest_tile] + camel_stack
+                        stacks[raw_dest_tile] = camel_stack + stacks[raw_dest_tile]
                     break
             else:
                 continue
@@ -61,8 +60,10 @@ def update_positions_v2(base_positions, moves, spectator_tiles):
 
     return final_positions
 
+
 def rank_camels(positions):
     return [camel for camel, _ in sorted(positions.items(), key=lambda x: (x[1][0], -x[1][1]), reverse=True)]
+
 
 def simulate_combinations(initial_positions, remaining_camels, spectator_tiles):
     dice_faces = [1, 2, 3]
@@ -73,10 +74,11 @@ def simulate_combinations(initial_positions, remaining_camels, spectator_tiles):
     for rolls in roll_combos:
         for order in order_perms:
             moves = list(zip(order, rolls))
-            final_pos = update_positions_v2(initial_positions, moves, spectator_tiles)
+            final_pos = update_positions(initial_positions, moves, spectator_tiles)
             rank = rank_camels(final_pos)
             results.append(rank)
     return results
+
 
 def summarize_results(results):
     rank_counter = defaultdict(int)
@@ -86,7 +88,11 @@ def summarize_results(results):
         rank_counter[tuple(rank)] += 1
 
     df_rank = pd.DataFrame([
-        {"Rank Order": " > ".join(r), "Probability (%)": c / total * 100}
+        {
+            "Rank Order": " > ".join(r),
+            "Count": c,
+            "Probability (%)": c / total * 100
+        }
         for r, c in sorted(rank_counter.items(), key=lambda x: -x[1])
     ])
 
@@ -96,51 +102,50 @@ def summarize_results(results):
             camel_rank_summary[camel][i] += 1
 
     df_camel_summary = pd.DataFrame([
-        {"Camel": camel, **{f"{i+1}st": count / total * 100 for i, count in enumerate(ranks)}}
+        {
+            "Camel": camel,
+            **{f"{i+1}st": count / total * 100 for i, count in enumerate(ranks)},
+            **{f"{i+1}st Count": count for i, count in enumerate(ranks)}
+        }
         for camel, ranks in camel_rank_summary.items()
     ])
-
     return df_rank, df_camel_summary.sort_values("1st", ascending=False)
 
-# -------------------- Streamlit UI --------------------
 
-st.title("🐫 Camel Up Simulator")
+# Streamlit UI
+st.title("🐫 Camel Up: Probability Simulator")
 
-with st.expander("📥 Input Camel Positions"):
-    st.markdown("Enter camel tile (0-16) and stack index (0 = bottom):")
-    camels = ["Red", "Blue", "Yellow", "Orange", "Green"]
-    initial_positions = {}
-    for camel in camels:
-        col1, col2 = st.columns(2)
-        with col1:
-            tile = st.number_input(f"{camel} Tile", 0, 16, value=1 if camel in ["Red", "Blue"] else 5 + camels.index(camel))
-        with col2:
-            idx = st.number_input(f"{camel} Stack Position", 0, 4, value=0)
-        initial_positions[camel] = (tile, idx)
+st.markdown("""
+Enter initial positions, remaining camels to roll, and spectator tiles. The app will simulate all possible move outcomes
+and display probabilities for each rank.
+""")
 
-remaining_camels = st.multiselect("🎲 Select Remaining Camels to Roll", camels, default=["Red", "Blue"])
+with st.form("input_form"):
+    pos_input = st.text_area("Initial Positions (e.g., Red:1,1; Blue:1,0; Green:7,0)",
+                              "Red:1,1; Blue:1,0; Yellow:5,0; Orange:6,0; Green:7,0")
+    rem_camels = st.text_input("Remaining Camels to Roll (comma separated)", "Red,Blue")
+    tile_input = st.text_input("Spectator Tiles (e.g., 3:oasis; 6:mirage)", "3:oasis")
+    submitted = st.form_submit_button("Run Simulation")
 
-with st.expander("🏜️ Add Spectator Tiles"):
-    spectator_tiles = {}
-    for i in range(17):
-        effect = st.selectbox(f"Tile {i} Effect", ["none", "oasis", "mirage"], key=f"tile_{i}")
-        if effect != "none":
-            spectator_tiles[i] = effect
+if submitted:
+    try:
+        initial_positions = {
+            part.split(":")[0].strip(): (int(part.split(":")[1].split(",")[0]), int(part.split(",")[1]))
+            for part in pos_input.split(";")
+        }
+        remaining_camels = [c.strip() for c in rem_camels.split(",") if c.strip()]
+        spectator_tiles = {
+            int(t.split(":"[0])): t.split(":")[1] for t in tile_input.split(";") if ":" in t
+        }
 
-if st.button("Simulate"):
-    if not remaining_camels:
-        st.warning("Please select at least one camel to roll.")
-    else:
-        with st.spinner("Simulating..."):
-            results = simulate_combinations(initial_positions, remaining_camels, spectator_tiles)
-            df_rank, df_camel_summary = summarize_results(results)
+        results = simulate_combinations(initial_positions, remaining_camels, spectator_tiles)
+        df_rank, df_summary = summarize_results(results)
 
         st.subheader("🔢 Rank Order Probabilities")
         st.dataframe(df_rank.head(10))
 
-        st.subheader("📊 Per-Camel Rank Probabilities")
-        st.dataframe(df_camel_summary)
+        st.subheader("📊 Per-Camel Rank Probabilities & Counts")
+        st.dataframe(df_summary)
 
-        csv = df_camel_summary.to_csv(index=False).encode()
-        st.download_button("⬇️ Download Camel Summary CSV", csv, "camel_summary.csv", "text/csv")
-
+    except Exception as e:
+        st.error(f"Error in input: {e}")
