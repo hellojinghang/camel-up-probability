@@ -116,29 +116,60 @@ def summarize_results(results):
 st.title("🐫 Camel Up: Probability Simulator")
 
 st.markdown("""
-Enter initial positions, remaining camels to roll, and spectator tiles. The app will simulate all possible move outcomes
-and display probabilities for each rank.
+Configure camel positions and spectator tiles below. Results show probability and count of each outcome.
 """)
 
+camel_colors = ["Red", "Blue", "Yellow", "Orange", "Green"]
+
 with st.form("input_form"):
-    pos_input = st.text_area("Initial Positions (e.g., Red:1,1; Blue:1,0; Green:7,0)",
-                              "Red:1,1; Blue:1,0; Yellow:5,0; Orange:6,0; Green:7,0")
-    rem_camels = st.text_input("Remaining Camels to Roll (comma separated)", "Red,Blue")
-    tile_input = st.text_input("Spectator Tiles (e.g., 3:oasis; 6:mirage)", "3:oasis")
-    submitted = st.form_submit_button("Run Simulation")
+    st.subheader("Camel Positions")
+    initial_positions = {}
+    tile_occupied = set()
+    for camel in camel_colors:
+        col1, col2 = st.columns(2)
+        with col1:
+            tile = st.slider(f"{camel} Tile", 0, 16, 1, key=f"{camel}_tile")
+        with col2:
+            stack_pos = st.slider(f"{camel} Stack Position (0 = bottom)", 0, 4, 0, key=f"{camel}_stack")
+        initial_positions[camel] = (tile, stack_pos)
+        tile_occupied.add(tile)
 
-if submitted:
+    st.subheader("Remaining Camels to Roll")
+    remaining_camels = st.multiselect("Select remaining camels to roll", camel_colors)
+
+    st.subheader("Spectator Tiles")
+    spectator_tiles = {}
+    spectator_state = st.session_state.setdefault("spectator_tiles", {})
+
+    with st.expander("Add Spectator Tile"):
+        selected_tile = st.slider("Tile to place spectator tile", 0, 16, 3, key="selected_tile")
+        effect = st.selectbox("Effect", ["oasis", "mirage"], key="effect")
+        if st.form_submit_button("Add Spectator Tile"):
+            if selected_tile in tile_occupied:
+                st.error("❌ Cannot place spectator tile on a tile that already has a camel.")
+            elif any(abs(selected_tile - t) == 1 for t in spectator_state):
+                st.error("❌ Spectator tiles cannot be adjacent to one another.")
+            else:
+                spectator_state[selected_tile] = effect
+                st.success(f"✅ Spectator tile added on tile {selected_tile} with effect '{effect}'.")
+
+    # Show current spectator tiles and allow removal
+    if spectator_state:
+        st.markdown("**Current Spectator Tiles:**")
+        for tile, eff in list(spectator_state.items()):
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                st.markdown(f"Tile {tile}: {eff}")
+            with col2:
+                if st.button("Remove", key=f"remove_{tile}"):
+                    del spectator_state[tile]
+                    st.experimental_rerun()
+
+    simulate = st.form_submit_button("Run Simulation")
+
+if simulate:
     try:
-        initial_positions = {
-            part.split(":")[0].strip(): (int(part.split(":")[1].split(",")[0]), int(part.split(",")[1]))
-            for part in pos_input.split(";")
-        }
-        remaining_camels = [c.strip() for c in rem_camels.split(",") if c.strip()]
-        spectator_tiles = {
-            int(t.split(":"[0])): t.split(":")[1] for t in tile_input.split(";") if ":" in t
-        }
-
-        results = simulate_combinations(initial_positions, remaining_camels, spectator_tiles)
+        results = simulate_combinations(initial_positions, remaining_camels, spectator_state)
         df_rank, df_summary = summarize_results(results)
 
         st.subheader("🔢 Rank Order Probabilities")
@@ -148,4 +179,4 @@ if submitted:
         st.dataframe(df_summary)
 
     except Exception as e:
-        st.error(f"Error in input: {e}")
+        st.error(f"Error in simulation: {e}")
