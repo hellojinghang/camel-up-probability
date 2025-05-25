@@ -139,37 +139,24 @@ with st.form("input_form"):
 
     st.subheader("Spectator Tiles")
     spectator_tiles = {}
-    spectator_state = st.session_state.setdefault("spectator_tiles", {})
+    for tile in range(17):
+        if tile in tile_occupied:
+            continue
+        adjacent_tiles = [tile - 1, tile + 1]
+        if any(adj in spectator_tiles for adj in adjacent_tiles):
+            continue
 
-    with st.expander("Add Spectator Tile"):
-        selected_tile = st.slider("Tile to place spectator tile", 0, 16, 3, key="selected_tile")
-        effect = st.selectbox("Effect", ["oasis", "mirage"], key="effect")
-        if st.form_submit_button("Add Spectator Tile"):
-            if selected_tile in tile_occupied:
-                st.error("❌ Cannot place spectator tile on a tile that already has a camel.")
-            elif any(abs(selected_tile - t) == 1 for t in spectator_state):
-                st.error("❌ Spectator tiles cannot be adjacent to one another.")
-            else:
-                spectator_state[selected_tile] = effect
-                st.success(f"✅ Spectator tile added on tile {selected_tile} with effect '{effect}'.")
-
-    # Show current spectator tiles and allow removal
-    if spectator_state:
-        st.markdown("**Current Spectator Tiles:**")
-        for tile, eff in list(spectator_state.items()):
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                st.markdown(f"Tile {tile}: {eff}")
-            with col2:
-                if st.button("Remove", key=f"remove_{tile}"):
-                    del spectator_state[tile]
-                    st.experimental_rerun()
+        effect = st.selectbox(
+            f"Tile {tile} spectator effect", ["None", "oasis", "mirage"], key=f"spectator_{tile}"
+        )
+        if effect != "None":
+            spectator_tiles[tile] = effect
 
     simulate = st.form_submit_button("Run Simulation")
 
 if simulate:
     try:
-        results = simulate_combinations(initial_positions, remaining_camels, spectator_state)
+        results = simulate_combinations(initial_positions, remaining_camels, spectator_tiles)
         df_rank, df_summary = summarize_results(results)
 
         st.subheader("🔢 Rank Order Probabilities")
