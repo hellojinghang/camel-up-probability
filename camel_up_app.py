@@ -124,46 +124,55 @@ camel_colors = ["Red", "Blue", "Yellow", "Orange", "Green"]
 with st.form("input_form"):
     st.subheader("Camel Positions")
     initial_positions = {}
-    tile_occupied = set()
+    all_positions = set()
     for camel in camel_colors:
         col1, col2 = st.columns(2)
         with col1:
             tile = st.slider(f"{camel} Tile", 0, 16, 1, key=f"{camel}_tile")
         with col2:
             stack_pos = st.slider(f"{camel} Stack Position (0 = bottom)", 0, 4, 0, key=f"{camel}_stack")
+
+        if (tile, stack_pos) in all_positions:
+            st.error(f"Invalid: Multiple camels on tile {tile} stack {stack_pos}")
+        all_positions.add((tile, stack_pos))
         initial_positions[camel] = (tile, stack_pos)
-        tile_occupied.add(tile)
 
     st.subheader("Remaining Camels to Roll")
     remaining_camels = st.multiselect("Select remaining camels to roll", camel_colors)
 
     st.subheader("Spectator Tiles")
     spectator_tiles = {}
-    for tile in range(17):
-        if tile in tile_occupied:
-            continue
-        adjacent_tiles = [tile - 1, tile + 1]
-        if any(adj in spectator_tiles for adj in adjacent_tiles):
-            continue
+    selected_tiles = st.multiselect("Select tile(s) for spectator effect", list(range(17)), key="spectator_tiles")
 
+    valid_spectator_tiles = []
+    for tile in selected_tiles:
+        if any((abs(tile - other) == 1) for other in valid_spectator_tiles):
+            st.error(f"Invalid: Spectator tile at {tile} adjacent to another spectator tile.")
+            continue
+        if tile in [pos[0] for pos in initial_positions.values()]:
+            st.error(f"Invalid: Spectator tile at {tile} overlaps with camel.")
+            continue
         effect = st.selectbox(
-            f"Tile {tile} spectator effect", ["None", "oasis", "mirage"], key=f"spectator_{tile}"
+            f"Effect for tile {tile}", ["oasis", "mirage"], key=f"spectator_effect_{tile}"
         )
-        if effect != "None":
-            spectator_tiles[tile] = effect
+        spectator_tiles[tile] = effect
+        valid_spectator_tiles.append(tile)
 
     simulate = st.form_submit_button("Run Simulation")
 
 if simulate:
-    try:
-        results = simulate_combinations(initial_positions, remaining_camels, spectator_tiles)
-        df_rank, df_summary = summarize_results(results)
+    if len(all_positions) < len(camel_colors):
+        st.error("Invalid configuration: Duplicate camel positions detected. Fix before running.")
+    else:
+        try:
+            results = simulate_combinations(initial_positions, remaining_camels, spectator_tiles)
+            df_rank, df_summary = summarize_results(results)
 
-        st.subheader("🔢 Rank Order Probabilities")
-        st.dataframe(df_rank.head(10))
+            st.subheader("🔢 Rank Order Probabilities")
+            st.dataframe(df_rank.head(10))
 
-        st.subheader("📊 Per-Camel Rank Probabilities & Counts")
-        st.dataframe(df_summary)
+            st.subheader("📊 Per-Camel Rank Probabilities & Counts")
+            st.dataframe(df_summary)
 
-    except Exception as e:
-        st.error(f"Error in simulation: {e}")
+        except Exception as e:
+            st.error(f"Error in simulation: {e}")
