@@ -1,178 +1,138 @@
 import streamlit as st
-import pandas as pd
-from itertools import permutations, product
-from collections import defaultdict
+import random
+import matplotlib.pyplot as plt
+from collections import Counter
 
-# Fixed camel movement logic with proper stacking
+# --- Board Drawing Function ---
+def draw_board(camel_positions, spectator_tiles):
+    fig, ax = plt.subplots(figsize=(14, 3))
 
-def update_positions(base_positions, moves, spectator_tiles):
-    camels = list(base_positions.keys())
-    stacks = {tile: [] for tile in range(17)}
+    # Draw tiles
+    for t in range(17):
+        ax.add_patch(plt.Rectangle((t, 0), 1, 1, fill=False))
+        ax.text(t + 0.5, -0.3, str(t), ha="center", va="center", fontsize=9)
 
-    # Initialize stacks
-    for camel in camels:
-        tile, stack = base_positions[camel]
-        stacks[tile].append((stack, camel))
+    # Draw camels
+    for camel, (tile, stack) in camel_positions.items():
+        ax.plot(tile + 0.5, 0.5 + stack * 0.3, 'o', markersize=15,
+                color=camel.lower())
+        ax.text(tile + 0.5, 0.5 + stack * 0.3, camel[0].upper(),
+                ha="center", va="center", color="white", fontsize=9, weight="bold")
 
-    for tile in stacks:
-        stacks[tile].sort()
+    # Draw spectator tiles
+    for tile, stype in spectator_tiles.items():
+        if stype == "Oasis":
+            ax.plot(tile + 0.5, 0.8, marker="*", color="green", markersize=15)
+        elif stype == "Mirage":
+            ax.plot(tile + 0.5, 0.8, marker="^", color="red", markersize=12)
 
-    for camel, steps in moves:
-        for tile, stack in stacks.items():
-            for i, (_, c) in enumerate(stack):
-                if c == camel:
-                    if tile == 0:
-                        camel_stack = [(0, camel)]
-                        stacks[tile] = [x for x in stack if x[1] != camel]
-                    else:
-                        camel_stack = stack[i:]
-                        stacks[tile] = stack[:i]
+    ax.set_xlim(0, 17)
+    ax.set_ylim(0, 3)
+    ax.axis("off")
+    st.pyplot(fig)
 
-                    raw_dest_tile = tile + steps
-                    final_dest_tile = raw_dest_tile
+# --- Helper Functions ---
+def simulate_race(camel_positions, remaining_camels, spectator_tiles, trials=10000):
+    outcomes = []
+    for _ in range(trials):
+        positions = {c: list(p) for c, p in camel_positions.items()}
+        camels_to_roll = remaining_camels[:]
+        random.shuffle(camels_to_roll)
 
-                    if raw_dest_tile in spectator_tiles:
-                        effect = spectator_tiles[raw_dest_tile]
-                        if effect == "oasis":
-                            final_dest_tile = min(16, raw_dest_tile + 1)
-                            stacks[final_dest_tile] = camel_stack + stacks[final_dest_tile]
-                        elif effect == "mirage":
-                            final_dest_tile = max(0, raw_dest_tile - 1)
-                            stacks[final_dest_tile] = (
-                                [(0, camel_stack[0][1])] +
-                                [(idx + 1, cam) for idx, (_, cam) in enumerate(camel_stack[1:])] +
-                                stacks[final_dest_tile]
-                            )
-                        else:
-                            stacks[final_dest_tile] = camel_stack + stacks[final_dest_tile]
-                        break
-                    else:
-                        stacks[raw_dest_tile] = camel_stack + stacks[raw_dest_tile]
-                    break
-            else:
-                continue
-            break
+        for camel in camels_to_roll:
+            roll = random.randint(1, 3)
+            tile, stack = positions[camel]
 
-    final_positions = {}
-    for tile, stack in stacks.items():
-        for idx, (_, camel) in enumerate(stack):
-            final_positions[camel] = (tile, idx)
+            # Move camel and any camels on top
+            moving_stack = [(c, s) for c, (t, s) in positions.items() if t == tile and s >= stack]
+            moving_stack.sort(key=lambda x: positions[x[0]][1])  # keep order
+            for c, _ in moving_stack:
+                positions[c][0] += roll
 
-    return final_positions
+            new_tile = positions[camel][0]
 
+            # Spectator tile effects
+            if new_tile in spectator_tiles:
+                if spectator_tiles[new_tile] == "Oasis":
+                    for c, _ in moving_stack:
+                        positions[c][0] += 1
+                elif spectator_tiles[new_tile] == "Mirage":
+                    for c, _ in moving_stack:
+                        positions[c][0] -= 1
 
-def rank_camels(positions):
-    return [camel for camel, _ in sorted(positions.items(), key=lambda x: (x[1][0], -x[1][1]), reverse=True)]
+            # Restack camels properly
+            same_tile_camels = [(c, s) for c, (t, s) in positions.items() if t == positions[camel][0]]
+            same_tile_camels.sort(key=lambda x: positions[x[0]][1])
+            for i, (c, _) in enumerate(same_tile_camels):
+                positions[c][1] = i
 
+        # Determine order
+        order = sorted(positions.items(), key=lambda x: (x[1][0], x[1][1]), reverse=True)
+        outcomes.append(order[0][0])  # Winner only
 
-def simulate_combinations(initial_positions, remaining_camels, spectator_tiles):
-    dice_faces = [1, 2, 3]
-    roll_combos = list(product(dice_faces, repeat=len(remaining_camels)))
-    order_perms = list(permutations(remaining_camels))
-    results = []
+    return Counter(outcomes), trials
 
-    for rolls in roll_combos:
-        for order in order_perms:
-            moves = list(zip(order, rolls))
-            final_pos = update_positions(initial_positions, moves, spectator_tiles)
-            rank = rank_camels(final_pos)
-            results.append(rank)
-    return results
+def check_constraints(camel_positions, spectator_tiles):
+    # Check duplicate camel positions
+    seen = set()
+    for pos in camel_positions.values():
+        if tuple(pos) in seen:
+            return False, "Two camels cannot occupy the same tile & stack index."
+        seen.add(tuple(pos))
 
+    # Spectator tile cannot be on camel tile
+    camel_tiles = {pos[0] for pos in camel_positions.values()}
+    for tile in spectator_tiles.keys():
+        if tile in camel_tiles:
+            return False, f"Spectator tile cannot be placed on camel tile {tile}."
 
-def summarize_results(results):
-    rank_counter = defaultdict(int)
-    total = len(results)
+    # Spectator tiles cannot be adjacent
+    for t in spectator_tiles.keys():
+        if (t - 1 in spectator_tiles) or (t + 1 in spectator_tiles):
+            return False, "Spectator tiles cannot be side by side."
 
-    for rank in results:
-        rank_counter[tuple(rank)] += 1
+    return True, ""
 
-    df_rank = pd.DataFrame([
-        {
-            "Rank Order": " > ".join(r),
-            "Count": c,
-            "Probability (%)": c / total * 100
-        }
-        for r, c in sorted(rank_counter.items(), key=lambda x: -x[1])
-    ])
+# --- Streamlit UI ---
+st.title("🐪 Camel Up Probability Simulator")
 
-    camel_rank_summary = defaultdict(lambda: [0] * 5)
-    for rank in results:
-        for i, camel in enumerate(rank):
-            camel_rank_summary[camel][i] += 1
+st.subheader("Camel Positions")
+camel_positions = {}
+colors = ["Red", "Blue", "Yellow", "Orange", "Green"]
+for camel in colors:
+    col1, col2 = st.columns(2)
+    with col1:
+        tile = st.number_input(f"{camel} tile", min_value=0, max_value=16, value=0, key=f"{camel}_tile")
+    with col2:
+        stack = st.number_input(f"{camel} stack index", min_value=0, max_value=4, value=0, key=f"{camel}_stack")
+    camel_positions[camel] = [tile, stack]
 
-    df_camel_summary = pd.DataFrame([
-        {
-            "Camel": camel,
-            **{f"{i+1}st": count / total * 100 for i, count in enumerate(ranks)},
-            **{f"{i+1}st Count": count for i, count in enumerate(ranks)}
-        }
-        for camel, ranks in camel_rank_summary.items()
-    ])
-    return df_rank, df_camel_summary.sort_values("1st", ascending=False)
+st.subheader("Spectator Tiles")
+spectator_tiles = {}
+for t in range(17):
+    choice = st.multiselect(f"Tile {t}", ["Oasis", "Mirage"], key=f"spec_{t}")
+    if choice:
+        spectator_tiles[t] = choice[0]
 
+st.subheader("Remaining Camels to Roll")
+remaining_camels = st.multiselect("Select remaining camels to roll", colors)
 
-# Streamlit UI
-st.title("🐫 Camel Up: Probability Simulator")
+# --- Live Board Preview ---
+st.subheader("Board Preview")
+draw_board(camel_positions, spectator_tiles)
 
-st.markdown("""
-Configure camel positions and spectator tiles below. Results show probability and count of each outcome.
-""")
-
-camel_colors = ["Red", "Blue", "Yellow", "Orange", "Green"]
-
-with st.form("input_form"):
-    st.subheader("Camel Positions")
-    initial_positions = {}
-    all_positions = set()
-    for camel in camel_colors:
-        col1, col2 = st.columns(2)
-        with col1:
-            tile = st.slider(f"{camel} Tile", 0, 16, 1, key=f"{camel}_tile")
-        with col2:
-            stack_pos = st.slider(f"{camel} Stack Position (0 = bottom)", 0, 4, 0, key=f"{camel}_stack")
-
-        if (tile, stack_pos) in all_positions:
-            st.error(f"Invalid: Multiple camels on tile {tile} stack {stack_pos}")
-        all_positions.add((tile, stack_pos))
-        initial_positions[camel] = (tile, stack_pos)
-
-    st.subheader("Remaining Camels to Roll")
-    remaining_camels = st.multiselect("Select remaining camels to roll", camel_colors)
-
-    st.subheader("Spectator Tiles")
-    spectator_tiles = {}
-    selected_tiles = st.multiselect("Select tile(s) for spectator effect", list(range(17)), key="spectator_tiles")
-
-    valid_spectator_tiles = []
-    for tile in selected_tiles:
-        if any((abs(tile - other) == 1) for other in valid_spectator_tiles):
-            st.error(f"Invalid: Spectator tile at {tile} adjacent to another spectator tile.")
-            continue
-        if tile in [pos[0] for pos in initial_positions.values()]:
-            st.error(f"Invalid: Spectator tile at {tile} overlaps with camel.")
-            continue
-        effect = st.selectbox(
-            f"Effect for tile {tile}", ["oasis", "mirage"], key=f"spectator_effect_{tile}"
-        )
-        spectator_tiles[tile] = effect
-        valid_spectator_tiles.append(tile)
-
-    simulate = st.form_submit_button("Run Simulation")
-
-if simulate:
-    if len(all_positions) < len(camel_colors):
-        st.error("Invalid configuration: Duplicate camel positions detected. Fix before running.")
+# --- Simulation ---
+if st.button("Run Simulation"):
+    valid, msg = check_constraints(camel_positions, spectator_tiles)
+    if not valid:
+        st.error(msg)
+    elif not remaining_camels:
+        st.error("Select at least one remaining camel to roll.")
     else:
-        try:
-            results = simulate_combinations(initial_positions, remaining_camels, spectator_tiles)
-            df_rank, df_summary = summarize_results(results)
-
-            st.subheader("🔢 Rank Order Probabilities")
-            st.dataframe(df_rank.head(10))
-
-            st.subheader("📊 Per-Camel Rank Probabilities & Counts")
-            st.dataframe(df_summary)
-
-        except Exception as e:
-            st.error(f"Error in simulation: {e}")
+        st.info("Running simulation, please wait...")
+        outcome_counts, total = simulate_race(camel_positions, remaining_camels, spectator_tiles)
+        st.subheader("Winning Probability")
+        for camel in colors:
+            count = outcome_counts.get(camel, 0)
+            prob = count / total * 100
+            st.write(f"{camel}: {prob:.2f}% ({count}/{total})")
