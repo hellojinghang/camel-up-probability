@@ -3,7 +3,9 @@ import pandas as pd
 from itertools import permutations, product
 from collections import defaultdict
 
-# Fixed camel movement logic with proper stacking
+# ==============================
+# Camel Up Logic
+# ==============================
 
 def update_positions(base_positions, moves, spectator_tiles):
     camels = list(base_positions.keys())
@@ -35,19 +37,10 @@ def update_positions(base_positions, moves, spectator_tiles):
                         effect = spectator_tiles[raw_dest_tile]
                         if effect == "oasis":
                             final_dest_tile = min(16, raw_dest_tile + 1)
-                            stacks[final_dest_tile] = camel_stack + stacks[final_dest_tile]
                         elif effect == "mirage":
                             final_dest_tile = max(0, raw_dest_tile - 1)
-                            stacks[final_dest_tile] = (
-                                [(0, camel_stack[0][1])] +
-                                [(idx + 1, cam) for idx, (_, cam) in enumerate(camel_stack[1:])] +
-                                stacks[final_dest_tile]
-                            )
-                        else:
-                            stacks[final_dest_tile] = camel_stack + stacks[final_dest_tile]
-                        break
-                    else:
-                        stacks[raw_dest_tile] = camel_stack + stacks[raw_dest_tile]
+
+                    stacks[final_dest_tile] = camel_stack + stacks[final_dest_tile]
                     break
             else:
                 continue
@@ -66,6 +59,9 @@ def rank_camels(positions):
 
 
 def simulate_combinations(initial_positions, remaining_camels, spectator_tiles):
+    if not remaining_camels:
+        return [rank_camels(initial_positions)]
+
     dice_faces = [1, 2, 3]
     roll_combos = list(product(dice_faces, repeat=len(remaining_camels)))
     order_perms = list(permutations(remaining_camels))
@@ -112,54 +108,75 @@ def summarize_results(results):
     return df_rank, df_camel_summary.sort_values("1st", ascending=False)
 
 
+# ==============================
 # Streamlit UI
+# ==============================
+
+st.set_page_config(layout="wide")  # ✅ Full width layout
+
 st.title("🐫 Camel Up: Probability Simulator")
 
 st.markdown("""
-Configure camel positions and spectator tiles below. Results show probability and count of each outcome.
+Configure camel positions, remaining camels, and spectator tiles below.  
+Results will be shown side by side to maximize screen space.
 """)
 
 camel_colors = ["Red", "Blue", "Yellow", "Orange", "Green"]
 
 with st.form("input_form"):
+    # -----------------
+    # Camel Positions
+    # -----------------
     st.subheader("Camel Positions")
     initial_positions = {}
     all_positions = set()
-    for camel in camel_colors:
-        col1, col2 = st.columns(2)
-        with col1:
-            tile = st.slider(f"{camel} Tile", 0, 16, 1, key=f"{camel}_tile")
-        with col2:
-            stack_pos = st.slider(f"{camel} Stack Position (0 = bottom)", 0, 4, 0, key=f"{camel}_stack")
 
-        if (tile, stack_pos) in all_positions:
-            st.error(f"Invalid: Multiple camels on tile {tile} stack {stack_pos}")
-        all_positions.add((tile, stack_pos))
-        initial_positions[camel] = (tile, stack_pos)
+    cols = st.columns(len(camel_colors))  # 5 columns
+    for i, camel in enumerate(camel_colors):
+        with cols[i]:
+            st.markdown(f"**{camel}**")
+            tile = st.slider(f"Tile", 0, 16, 1, key=f"{camel}_tile")
+            stack_pos = st.slider(f"Stack (0=bottom)", 0, 4, 0, key=f"{camel}_stack")
 
+            if (tile, stack_pos) in all_positions:
+                st.error(f"Duplicate: {camel} at tile {tile}, stack {stack_pos}")
+            all_positions.add((tile, stack_pos))
+            initial_positions[camel] = (tile, stack_pos)
+
+    # -----------------
+    # Remaining Camels
+    # -----------------
     st.subheader("Remaining Camels to Roll")
-    remaining_camels = st.multiselect("Select remaining camels to roll", camel_colors)
+    remaining_camels = st.multiselect("Select remaining camels", camel_colors)
 
+    # -----------------
+    # Spectator Tiles
+    # -----------------
     st.subheader("Spectator Tiles")
     spectator_tiles = {}
     selected_tiles = st.multiselect("Select tile(s) for spectator effect", list(range(17)), key="spectator_tiles")
 
+    cols_spec = st.columns(3)  # display spectator effects in 3 columns
     valid_spectator_tiles = []
-    for tile in selected_tiles:
+    for i, tile in enumerate(selected_tiles):
         if any((abs(tile - other) == 1) for other in valid_spectator_tiles):
             st.error(f"Invalid: Spectator tile at {tile} adjacent to another spectator tile.")
             continue
         if tile in [pos[0] for pos in initial_positions.values()]:
             st.error(f"Invalid: Spectator tile at {tile} overlaps with camel.")
             continue
-        effect = st.selectbox(
-            f"Effect for tile {tile}", ["oasis", "mirage"], key=f"spectator_effect_{tile}"
-        )
+        with cols_spec[i % 3]:
+            effect = st.selectbox(
+                f"Tile {tile} effect", ["oasis", "mirage"], key=f"spectator_effect_{tile}"
+            )
         spectator_tiles[tile] = effect
         valid_spectator_tiles.append(tile)
 
     simulate = st.form_submit_button("Run Simulation")
 
+# -----------------
+# Results
+# -----------------
 if simulate:
     if len(all_positions) < len(camel_colors):
         st.error("Invalid configuration: Duplicate camel positions detected. Fix before running.")
@@ -168,11 +185,14 @@ if simulate:
             results = simulate_combinations(initial_positions, remaining_camels, spectator_tiles)
             df_rank, df_summary = summarize_results(results)
 
-            st.subheader("🔢 Rank Order Probabilities")
-            st.dataframe(df_rank.head(10))
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("🔢 Rank Order Probabilities")
+                st.dataframe(df_rank.head(10), use_container_width=True)
 
-            st.subheader("📊 Per-Camel Rank Probabilities & Counts")
-            st.dataframe(df_summary)
+            with col2:
+                st.subheader("📊 Per-Camel Rank Probabilities & Counts")
+                st.dataframe(df_summary, use_container_width=True)
 
         except Exception as e:
             st.error(f"Error in simulation: {e}")
