@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#d99b45" />
+  <meta name="description" content="Responsive exact Camel Up probability calculator with a clickable board." />
+  <title>Camel Up Probability Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Exact probability dashboard</p>
+        <h1>🐫 Camel Up Calculator</h1>
+        <p class="lede">Tap the pieces onto the track, mark the dice still in the pyramid, then enumerate every possible remaining outcome.</p>
+      </div>
+      <button id="resetButton" class="button button-quiet" type="button">Reset</button>
+    </header>
+
+    <section class="panel edition-panel" aria-labelledby="editionHeading">
+      <div class="edition-row">
+        <div>
+          <h2 id="editionHeading">Game edition</h2>
+          <p id="editionHelp" class="muted">Five racing camels and five racing dice.</p>
+        </div>
+        <div class="segmented" role="group" aria-label="Game edition">
+          <button class="segment" data-edition="classic" type="button">Classic</button>
+          <button class="segment" data-edition="crazy" type="button">Crazy Camels</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="dashboard-grid">
+      <section class="panel board-panel" aria-labelledby="boardHeading">
+        <div class="section-heading">
+          <div>
+            <h2 id="boardHeading">Board setup</h2>
+            <p>Tap a camel, then tap its space. A camel placed on an occupied space goes on top.</p>
+          </div>
+          <div class="mini-actions desktop-board-actions">
+            <button id="exampleButton" class="text-button" type="button">Example</button>
+            <button id="clearBoardButton" class="text-button danger-text" type="button">Clear</button>
+          </div>
+        </div>
+
+        <div class="piece-tray-wrap">
+          <div class="tray-label">Choose a camel</div>
+          <div id="pieceTray" class="piece-tray" aria-label="Camel pieces"></div>
+        </div>
+
+        <div id="gameBoard" class="game-board" aria-label="Camel Up race track"></div>
+
+        <div class="board-toolbar" aria-label="Board placement tools">
+          <div class="tool-status">
+            <span class="tool-status-label">Selected</span>
+            <strong id="selectedToolStatus">Choose a camel or board tool</strong>
+          </div>
+          <div class="board-tools">
+            <button class="tool-chip oasis" type="button" data-board-tool="oasis">🌴 +1 Oasis</button>
+            <button class="tool-chip mirage" type="button" data-board-tool="mirage">🏜 −1 Mirage</button>
+            <button class="tool-chip erase" type="button" data-board-tool="erase">🧹 Remove tile</button>
+          </div>
+        </div>
+
+        <div class="mobile-board-actions">
+          <button id="exampleButtonMobile" class="text-button" type="button">Load example</button>
+          <button id="clearBoardButtonMobile" class="text-button danger-text" type="button">Clear board</button>
+        </div>
+
+        <div class="board-legend">
+          <span><span class="legend-arrow">↻</span> racers: 1 → 16 → finish</span>
+          <span id="crazyLegend" hidden><span class="legend-arrow">↺</span> crazy camels: counterclockwise</span>
+          <span>Tap an occupied space with no tool selected to edit its stack.</span>
+        </div>
+      </section>
+
+      <aside class="side-column" aria-label="Probability controls">
+        <section class="panel dice-panel" aria-labelledby="diceHeading">
+          <div class="section-heading compact-heading">
+            <div>
+              <h2 id="diceHeading">Dice still in the pyramid</h2>
+              <p id="diceHelp">Tap each die to mark whether it is still available this leg.</p>
+            </div>
+            <div class="mini-actions">
+              <button id="selectAllDiceButton" class="text-button" type="button">All</button>
+              <button id="selectNoDiceButton" class="text-button" type="button">None</button>
+            </div>
+          </div>
+          <div id="diceTray" class="dice-tray"></div>
+          <div id="rollsInfo" class="info-strip"></div>
+        </section>
+
+        <section class="panel help-panel" aria-labelledby="howHeading">
+          <h2 id="howHeading">Fast setup</h2>
+          <ol class="quick-steps">
+            <li>Choose a camel and tap its space.</li>
+            <li>Use the board tools for Oasis or Mirage tiles.</li>
+            <li>Switch off dice that have already been rolled.</li>
+            <li>Calculate the exact finishing probabilities.</li>
+          </ol>
+        </section>
+
+        <div id="validationBox" class="validation-box" hidden role="alert"></div>
+
+        <div class="run-bar">
+          <button id="runButton" class="button button-primary" type="button">Calculate exact probabilities</button>
+        </div>
+      </aside>
+    </div>
+
+    <section id="resultsSection" class="panel results-panel" hidden aria-labelledby="resultsHeading">
+      <div class="section-heading result-heading">
+        <div>
+          <p class="eyebrow">Exact enumeration</p>
+          <h2 id="resultsHeading">Finishing-position probabilities</h2>
+          <p id="resultMeta" class="muted"></p>
+        </div>
+      </div>
+      <div id="resultsTableWrap" class="results-table-wrap"></div>
+      <div id="resultsGrid" class="results-grid"></div>
+      <p class="result-note">Percentages are calculated exactly, not sampled. Fractions are reduced from the exact weighted outcome count.</p>
+    </section>
+
+    <footer>
+      Runs entirely in your browser. No board state is uploaded.
+    </footer>
+  </main>
+
+  <dialog id="stackDialog" class="stack-dialog" aria-labelledby="stackDialogTitle">
+    <div class="stack-sheet">
+      <div class="stack-dialog-header">
+        <div>
+          <p class="eyebrow">Stack editor</p>
+          <h2 id="stackDialogTitle">Tile</h2>
+          <p class="muted">Reorder from bottom to top without rebuilding the stack.</p>
+        </div>
+        <button id="closeStackDialog" class="icon-button" type="button" aria-label="Close stack editor">✕</button>
+      </div>
+      <div class="stack-direction"><span>TOP</span><span>BOTTOM</span></div>
+      <div id="stackEditorList" class="stack-editor-list"></div>
+      <button id="doneStackDialog" class="button button-primary" type="button">Done</button>
+    </div>
+  </dialog>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
