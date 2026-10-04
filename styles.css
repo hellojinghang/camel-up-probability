@@ -128,7 +128,7 @@ h2 { margin-bottom: 5px; font-size: 1.12rem; }
 }
 .camel-piece.selected,
 .tool-chip.selected { box-shadow: 0 0 0 3px rgba(154,93,33,.18); border-color: var(--accent); transform: translateY(-1px); }
-.camel-piece.placed::after { content: '✓'; font-size: .72rem; font-weight: 1000; color: var(--success); }
+.camel-piece.placed::after { content: 'âœ“'; font-size: .72rem; font-weight: 1000; color: var(--success); }
 
 .camel-dot,
 .die-dot {
@@ -325,7 +325,7 @@ h2 { margin-bottom: 5px; font-size: 1.12rem; }
   min-height: 46px;
   border-radius: 12px;
   padding: 11px 15px;
-  border#� 10px solid transparent;
+  border#¢ 10px solid transparent;
   font-weight: 900;
   cursor: pointer;
 }
@@ -462,4 +462,17 @@ footer { text-align: center; font-size: .77rem; padding-top: 5px; }
   .tool-chip { font-size: .67rem; }
   .tile-number { top: 3px; left: 4px; }
   .tile-stack { inset: 20px 2px 2px; }
+}
+
+
+.race-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 16px 0; }
+.race-controls .button-primary { width: auto; }
+.race-controls select { min-height: 44px; font: inherit; border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+#raceSection details { color: var(--muted); font-size: .9rem; line-height: 1.5; }
+#raceSection summary { cursor: pointer; min-height: 44px; padding-block: 10px; color: var(--accent); font-weight: 700; }
+.race-mobile { display: none; }
+@media (max-width: 700px) {
+  .race-desktop { display: none; }
+  .race-mobile { display: grid; gap: 12px; }
+  .race-controls .button-primary { width: 100%; }
 }
