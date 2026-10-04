@@ -135,6 +135,7 @@ function loadState() {
 }
 
 function saveState() {
+  invalidateRace();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
@@ -487,6 +488,7 @@ function loadExample() {
 }
 
 function resetApp() {
+  invalidateRace(true);
   localStorage.removeItem(STORAGE_KEY);
   state = makeDefaultState();
   elements.resultsSection.hidden = true;
@@ -711,3 +713,64 @@ elements.stackDialog.addEventListener('click', (event) => {
 });
 
 renderAll();
+
+
+// Independent worker keeps the leg calculator available and allows cancellation.
+let raceWorker = null;
+let raceSetupKey = null;
+const currentRaceSetupKey = () => JSON.stringify([state.boardStacks, state.spectators, state.remainingDice, state.editionId]);
+const raceRun = document.querySelector('#raceRun');
+const raceCancel = document.querySelector('#raceCancel');
+const raceStatus = document.querySelector('#raceStatus');
+const raceResults = document.querySelector('#raceResults');
+function stopRace() {
+  raceWorker?.terminate(); raceWorker = null;
+  raceRun.disabled = false; raceCancel.hidden = true;
+}
+function invalidateRace(force = false) {
+  if (!force && (raceSetupKey === null || raceSetupKey === currentRaceSetupKey())) return;
+  raceSetupKey = null;
+  stopRace();
+  raceResults.hidden = true;
+  raceStatus.textContent = 'Setup changed. Calculate again for the current board.';
+}
+function rangeText(cell, complete) {
+  const low = Math.max(0, Math.min(100, cell.low * 100));
+  const high = Math.max(0, Math.min(100, cell.high * 100));
+  // Round unfinished bounds outward so display rounding never narrows them.
+  const a = complete ? low : Math.floor(low * 100 + 1e-9) / 100;
+  const b = complete ? high : Math.ceil(high * 100 - 1e-9) / 100;
+  return `${a.toFixed(2)}% – ${b.toFixed(2)}%`;
+}
+function showRaceRanges(result) {
+  const label = result.complete ? 'Completed placement ranges' : 'Unfinished search · outer bounds only';
+  raceStatus.textContent = `${label}. Looked ahead ${result.reachedDepth} rolls; ${result.nodes.toLocaleString()} states evaluated in ${(result.elapsedMs / 1000).toFixed(1)} seconds.${result.complete ? '' : ' The true minimum and maximum remain unresolved. A longer calculation may narrow these bounds.'}`;
+  raceResults.innerHTML = `<div class="results-table-wrap race-desktop"><table class="probability-table"><thead><tr><th>Camel</th>${RACING_CAMELS.map((_,i) => `<th>${placeLabel(i)}</th>`).join('')}</tr></thead><tbody>${RACING_CAMELS.map(c => `<tr><td><span class="table-camel">${camelDot(c)} ${c}</span></td>${result.ranges[c].map(cell => `<td>${rangeText(cell, result.complete)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    <div class="race-mobile">${RACING_CAMELS.map(c => `<article class="result-card"><div class="result-camel">${camelDot(c)} ${c}</div>${result.ranges[c].map((cell,i) => `<div class="place-row"><span>${placeLabel(i)}</span><strong>${rangeText(cell, result.complete)}</strong></div>`).join('')}</article>`).join('')}</div>`;
+  raceResults.hidden = false;
+}
+raceRun.addEventListener('click', () => {
+  clearValidation();
+  const positions = positionsFromBoard();
+  const errors = validateSetup(positions, state.remainingDice, state.spectators, state.editionId);
+  if (errors.length) { showValidation(errors); return; }
+  stopRace(); raceResults.hidden = true;
+  raceSetupKey = currentRaceSetupKey();
+  raceWorker = new Worker('./worker.js', {type: 'module'});
+  raceRun.disabled = true; raceCancel.hidden = false;
+  raceStatus.textContent = 'Exploring future dice and relevant tile placements…';
+  raceWorker.onmessage = ({data}) => {
+    if (data.progress) {
+      raceStatus.textContent = `Explored ${data.progress.depth} rolls ahead; checking deeper outcomes…`;
+      return;
+    }
+    stopRace();
+    if (data.ok) showRaceRanges(data.result);
+    else { raceStatus.textContent = 'Calculation failed.'; showValidation(data.validationErrors ?? [data.error]); }
+  };
+  raceWorker.onerror = e => { stopRace(); raceStatus.textContent = `Calculation failed: ${e.message}`; };
+  raceWorker.postMessage({mode: 'race', positions, remainingDice: state.remainingDice,
+    spectators: state.spectators, editionId: state.editionId,
+    timeLimitMs: Number(document.querySelector('#raceBudget').value)});
+});
+raceCancel.addEventListener('click', () => { stopRace(); raceStatus.textContent = 'Calculation cancelled.'; });

@@ -114,13 +114,34 @@
       <div class="section-heading result-heading">
         <div>
           <p class="eyebrow">Exact enumeration</p>
-          <h2 id="resultsHeading">Finishing-position probabilities</h2>
+          <h2 id="resultsHeading">Current-leg finishing probabilities</h2>
           <p id="resultMeta" class="muted"></p>
         </div>
       </div>
       <div id="resultsTableWrap" class="results-table-wrap"></div>
       <div id="resultsGrid" class="results-grid"></div>
       <p class="result-note">Percentages are calculated exactly, not sampled. Fractions are reduced from the exact weighted outcome count.</p>
+    </section>
+
+    <section class="panel" id="raceSection" aria-labelledby="raceHeading">
+      <p class="eyebrow">Option C · Future tile choices</p>
+      <h2 id="raceHeading">Game-end probability ranges</h2>
+      <p class="muted">Compare each camel’s lowest and highest finishing chances across future oasis and mirage choices.</p>
+      <details>
+        <summary>How these ranges work</summary>
+        <p>Your entered tiles apply to the next roll. After that, any legal arrangement of anonymous tiles may be chosen before each roll, including no tiles. Choices can respond to earlier rolls, but cannot see the next die or its value.</p>
+        <p>Spaces occupied by camels, space 1 and adjacent spectator tiles are excluded. Only possible landing spaces need checking because arrangements can change again before the following roll. Stacks, carried camels and Crazy Camels are included. Dice reset at each leg and the race stops at the finish.</p>
+        <p>This is a broad placement envelope: it ignores ownership, player count and turn order. It does not predict player behaviour. Each endpoint is optimized separately; endpoints across camels or ranks need not add to 100%.</p>
+        <p>A completed search gives the range under this model, rounded to two decimals. An unfinished search gives outer bounds, which may be wider (even 0–100%) because later outcomes remain unresolved. These are not confidence intervals or sampled estimates.</p>
+      </details>
+      <div class="race-controls">
+        <label for="raceBudget">Calculation time</label>
+        <select id="raceBudget"><option value="8000">8 seconds</option><option value="30000">30 seconds</option><option value="60000">60 seconds</option></select>
+        <button id="raceRun" class="button button-primary" type="button">Calculate game-end ranges</button>
+        <button id="raceCancel" class="button button-quiet" type="button" hidden>Cancel</button>
+      </div>
+      <p id="raceStatus" class="muted" role="status" aria-live="polite">Set up the board above, then calculate.</p>
+      <div id="raceResults" hidden></div>
     </section>
 
     <footer>
@@ -147,3 +168,4 @@
   <script type="module" src="app.js"></script>
 </body>
 </html>
+
