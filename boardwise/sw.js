@@ -1,4 +1,4 @@
-const CACHE='boardwise-v0.1.0';
+const CACHE='boardwise-v0.1.0-b';
 const FILES=['./','./index.html','./styles.css','./app.js','./worker.js','./games/registry.js','./games/camel-up/plugin.js','./games/camel-up/simulator.js','./games/camel-up/race-range.js','./manifest.webmanifest','./icon.svg'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES))));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('boardwise-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
