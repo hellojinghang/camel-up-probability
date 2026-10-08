@@ -10,7 +10,11 @@ A concrete inherited defect was repaired: Crazy Camels used to wrap past the sta
 
 ## Browser checks
 
-Hosted browser smoke tests are pending for this initial deployment. A local Playwright browser download was unavailable in the execution environment. Do not interpret automated engine tests as visual or cross-browser certification.
+PASS in hosted Chromium: classic current-leg analysis, second-edition analysis (5,598,720 weighted outcomes), ticket controls, stale-result invalidation, saving and reopening a scenario, Academy scoring/feedback, and cancelling game-end search.
+
+PASS visual inspection: desktop layout and phone layout in a 390 px outer-width iframe (373 px content viewport with browser scrollbar). The narrow document scrollWidth equaled its clientWidth, and its calculation completed. This uses a real narrow browsing context, not an actual phone.
+
+The responsive harness is available at `tests/responsive.html` for repeatable 390 / 768 / 1280 px inspection. A local Playwright browser download was unavailable; hosted browser checks were used instead. Actual iOS/Android devices, offline reopen/install, other browser engines, and JSON download/import roundtrip still need manual testing.
 
 ## Manual device checklist
 
