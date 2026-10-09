@@ -122,7 +122,7 @@ render();importHash();
 if('serviceWorker' in navigator){
  let reloading=false;
  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(waitingWorker&&!reloading){reloading=true;location.reload();}});
- navigator.serviceWorker.register('./sw.js').then(reg=>{
+ navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>{
   const offerUpdate=()=>{if(reg.waiting&&navigator.serviceWorker.controller){waitingWorker=reg.waiting;$('#update-banner').hidden=false;}};
   offerUpdate();reg.addEventListener('updatefound',()=>{const incoming=reg.installing;incoming?.addEventListener('statechange',()=>{if(incoming.state==='installed')offerUpdate();});});
   $('#apply-update').onclick=()=>{if(waitingWorker){write('boardwise.draft',state);waitingWorker.postMessage({type:'ACTIVATE_UPDATE'});}};
