@@ -1,6 +1,6 @@
-# BoardWise 0.1.0 — testing release
+# BoardWise 0.2.0 — testing release
 
-A zero-build, browser-only board game companion. This first release covers Camel Up in Live Assistant and Strategy Academy. No account, paid backend, tracking or payment collection.
+A zero-build, browser-only board game companion. This second test release covers Camel Up in Live Assistant and Strategy Academy. No account, paid backend, tracking or payment collection.
 
 ## Open / run
 
@@ -23,7 +23,7 @@ Tests: `npm test --prefix boardwise` from the repository root, or `npm test` ins
 4. Calculate. Inspect all five rank probabilities and change each next available ticket (5 / 3 / 2 / None) to compare EV.
 5. Change the board: previous results must disappear. **Undo** restores the previous board.
 6. Save a scenario, open **Saved scenarios**, export it, and import it again. Saves are local to this browser, not cloud synced.
-7. Try **Strategy Academy**. Four exercises share the live calculation engine; progress counts attempts, including repeats.
+7. Try **Strategy Academy**. Four guided lessons and generated probability / ticket-value challenges share the live calculation engine; progress counts attempts, including repeats.
 8. Test the second edition, including Crazy Camels and its five-of-six-dice leg limit.
 9. Optionally run the experimental game-end bounds. Cancel should leave the UI usable.
 10. In **Testing & methodology**, describe a defect and download the test report. Send the report with your feedback. No report is sent automatically.
@@ -65,3 +65,15 @@ The engine and original range regression suite were adapted from `hellojinghang/
 3. Broader scenario training, scenario comparison and accessibility refinements.
 4. Secure server-side purchase verification before any premium access.
 5. A second game only after the shared plugin contract and first-game UX are stable.
+
+
+## Version 0.2 changes
+
+- Pin a calculated baseline, change board/dice/tiles or tickets, and recalculate to compare first-place probabilities (percentage-point change) and ticket EV. Restore the baseline with one click. Baselines last for the current tab session; saved scenarios remain durable browser storage.
+- Generated classic-rule probability and ticket-EV practice. Each answer is evaluated by the shared engine. Guided lessons remain available; navigating away preserves the current exercise. Open an answered exercise in Live Assistant for further study.
+- Back up the full playbook as one JSON file; restore merges with existing saves, skips equivalent named scenarios, validates every entry before writing, and rejects oversized imports atomically.
+- Larger text/touch targets and a two-row mobile navigation. On narrow layouts a completed live calculation scrolls to its results.
+- Shared scenario URLs are consumed once, so later edits survive reload instead of reimporting the original URL state.
+- A waiting-update prompt supports future service-worker upgrades. For the first upgrade from v0.1, close all old BoardWise tabs and reopen once to allow the new release to activate.
+
+The v0.2 release keeps the v0.1 movement and probability engines unchanged. 8 additional tests cover comparison, generated practice across 100 seeds in each mode, backup roundtrips, deduplication and atomic rejection. Browser checks are documented in TESTING.md.

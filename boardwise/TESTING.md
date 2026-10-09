@@ -1,4 +1,16 @@
-# Test record — BoardWise 0.1.0
+# Version 0.2 verification
+
+PASS: original engine/range regression suite, 14 v0.1 tests, and 8 new v0.2 tests.
+- Generated scenarios checked at 100 seeds in each of two modes, including reproducibility and exact-engine agreement.
+- Comparison deltas, identical scenarios, unavailable tickets and edition mismatch.
+- Full-playbook JSON roundtrip, equivalent-state deduplication, old-save preservation and atomic invalid/over-limit rejection.
+- JavaScript syntax validation.
+
+Hosted v0.2 browser smoke tests pending deployment. Actual mobile hardware, offline mode and install behavior remain manual test items.
+
+## Version 0.1 verification history
+
+
 
 ## Automated checks
 

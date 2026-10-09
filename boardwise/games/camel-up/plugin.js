@@ -1,5 +1,5 @@
 import {RACING_CAMELS, EDITIONS, validateSetup, simulateExact, displayCamelName} from './simulator.js';
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 export const colors = {Blue:'#347fc0',Green:'#288569',Orange:'#e58a3c',Yellow:'#dfb638',White:'#d5d1c6',CrazyWhite:'#e6dcec',CrazyBlack:'#424551'};
 export function label(c, edition='classic') { return edition === 'crazy' && c === 'White' ? 'Purple' : displayCamelName(c); }
 export function color(c, edition='classic') { return edition === 'crazy' && c === 'White' ? '#9862bb' : colors[c]; }
