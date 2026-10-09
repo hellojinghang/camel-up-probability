@@ -6,7 +6,16 @@ PASS: original engine/range regression suite, 14 v0.1 tests, and 8 new v0.2 test
 - Full-playbook JSON roundtrip, equivalent-state deduplication, old-save preservation and atomic invalid/over-limit rejection.
 - JavaScript syntax validation.
 
-Hosted v0.2 browser smoke tests pending deployment. Actual mobile hardware, offline mode and install behavior remain manual test items.
+PASS hosted Chromium:
+- v0.1-to-v0.2 update with an existing saved scenario preserved.
+- Live calculation, baseline pinning, changed board and probability/EV comparison.
+- Generated ticket-value challenge, answer feedback and complete calculated score table.
+- Playbook download and reimport through the file chooser: duplicate skipped and original retained.
+- 390 px outer-width responsive harness (373 px content viewport): all four navigation choices visible; document scrollWidth equals clientWidth.
+
+Deployment: GitHub Pages build succeeded. The offline installer now reloads release assets from the network to prevent an older HTTP-cached app shell from being installed into a new cache. Close all v0.1 tabs and reopen after the first refresh to activate this upgrade. No saved browser data needs to be cleared.
+
+Actual mobile hardware, offline-only reopen/install and other browser engines remain manual test items.
 
 ## Version 0.1 verification history
 
